@@ -1,0 +1,29 @@
+name: tusj
+
+# Run with: podman compose up -d --build
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # main.py looks for these one level above /app
+      - ./templates:/templates:ro
+      - ./plugins:/plugins:ro
+      - ./prints:/prints        # PNGs from "file" printers
+      - ./config.yaml:/config.yaml  # writable: the app saves printers and plugin settings here
+    restart: unless-stopped
+    healthcheck:
+      # A script rather than inline Python: podman-compose mangles quoted arguments here.
+      test: ["CMD", "python", "healthcheck.py"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"  # rootless Podman can't bind ports below 1024
+    depends_on:
+      - backend
+    restart: unless-stopped

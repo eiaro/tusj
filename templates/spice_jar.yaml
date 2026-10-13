@@ -1,0 +1,17 @@
+# Text can be a plain string or one entry per language (en, nb).
+# Field ids are the keys the frontend sends; keep them stable.
+name: {en: Spice Jar, nb: Krydderglass}
+style: container
+icon: 🫙
+border: ornate  # none, simple, double or ornate
+fields:
+  - id: name
+    type: text
+    label: {en: Name, nb: Navn}
+    required: true
+
+  - id: expires
+    type: date-presets
+    label: {en: Expires, nb: Holdbar til}
+    required: false
+    presets: ["+3m", "+6m", "+1y"]

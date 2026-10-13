@@ -1,0 +1,26 @@
+# Text can be a plain string or one entry per language (en, nb).
+# Field ids are the keys the frontend sends; keep them stable.
+name: {en: Premade Food, nb: Ferdigmat}
+style: info
+icon: 🍲
+fields:
+  - id: title
+    type: text
+    label: {en: Title, nb: Tittel}
+    required: true
+
+  - id: made
+    type: date
+    label: {en: Made, nb: Laget}
+    default: today
+
+  - id: expires
+    type: date-presets
+    label: {en: Expires, nb: Holdbar til}
+    required: true
+    presets: ["+3d", "+1w", "+2w", "+1m"]
+
+  - id: allergens
+    type: allergens
+    label: {en: Allergens, nb: Allergener}
+    required: false

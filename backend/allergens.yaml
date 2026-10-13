@@ -1,0 +1,44 @@
+# The 14 allergens that must be declared under EU/EEA food labelling rules.
+# Ids are what the frontend sends; names are printed on the label in the chosen language.
+- id: gluten
+  icon: 🌾
+  name: {en: Gluten, nb: Gluten}
+- id: crustaceans
+  icon: 🦐
+  name: {en: Crustaceans, nb: Skalldyr}
+- id: eggs
+  icon: 🥚
+  name: {en: Eggs, nb: Egg}
+- id: fish
+  icon: 🐟
+  name: {en: Fish, nb: Fisk}
+- id: peanuts
+  icon: 🥜
+  name: {en: Peanuts, nb: Peanøtter}
+- id: soy
+  icon: 🫘
+  name: {en: Soy, nb: Soya}
+- id: milk
+  icon: 🥛
+  name: {en: Milk, nb: Melk}
+- id: nuts
+  icon: 🌰
+  name: {en: Nuts, nb: Nøtter}
+- id: celery
+  icon: 🥬
+  name: {en: Celery, nb: Selleri}
+- id: mustard
+  icon: 🌭
+  name: {en: Mustard, nb: Sennep}
+- id: sesame
+  icon: 🫓
+  name: {en: Sesame, nb: Sesam}
+- id: sulphites
+  icon: 🍷
+  name: {en: Sulphites, nb: Sulfitt}
+- id: lupin
+  icon: 🌸
+  name: {en: Lupin, nb: Lupin}
+- id: molluscs
+  icon: 🦑
+  name: {en: Molluscs, nb: Bløtdyr}

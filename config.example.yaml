@@ -1,0 +1,18 @@
+# Copy to config.yaml and adjust. config.yaml is not tracked by git: it holds your
+# printer addresses and plugin settings such as API tokens.
+# Most of this can be edited from the app under Settings.
+
+printers:
+  - id: kitchen
+    name: Kitchen
+    driver: brother_ql              # brother_ql or file (saves PNGs in prints/<id>/)
+    connection: tcp://192.168.1.100 # tcp://host[:port] | usb://0x04f9:0x209d | file:///dev/usb/lp0
+    model: QL-820NWB
+    media: "62"                     # label size loaded in the printer, e.g. 62, 29, 62red
+
+plugins: {}
+#  inventree:
+#    printer: kitchen               # default printer for this plugin (else the first printer)
+#    settings:
+#      url: https://inventree.example.com
+#      token: ...                   # set from the app; never commit this
