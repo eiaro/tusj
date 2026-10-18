@@ -2,10 +2,10 @@ name: tusj
 
 # Installed copies pull the published images (the install script does this).
 # From a source checkout: podman compose up -d --build
-# TUSJ_IMAGE_TAG picks another tag, e.g. a release like v0.2.0.
+# TUSJ_IMAGE_TAG picks another tag, e.g. a release like v0.1.0-alpha.
 services:
   backend:
-    image: ghcr.io/eiaro/tusj-backend:${TUSJ_IMAGE_TAG:-latest}
+    image: ghcr.io/eiaro/tusj-backend:${TUSJ_IMAGE_TAG:-edge}
     build: ./backend
     ports:
       - "8000:8000"
@@ -15,7 +15,7 @@ services:
       - ./plugins:/plugins:ro
       - ./prints:/prints        # PNGs from "file" printers
       - ./config.yaml:/config.yaml  # writable: the app saves printers and plugin settings here
-    restart: unless-stopped
+    restart: always
     healthcheck:
       # A script rather than inline Python: podman-compose mangles quoted arguments here.
       test: ["CMD", "python", "healthcheck.py"]
@@ -24,10 +24,10 @@ services:
       retries: 3
 
   frontend:
-    image: ghcr.io/eiaro/tusj-frontend:${TUSJ_IMAGE_TAG:-latest}
+    image: ghcr.io/eiaro/tusj-frontend:${TUSJ_IMAGE_TAG:-edge}
     build: ./frontend
     ports:
       - "8080:80"  # rootless Podman can't bind ports below 1024
     depends_on:
       - backend
-    restart: unless-stopped
+    restart: always

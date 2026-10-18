@@ -3,10 +3,14 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [--docker | --podman] [INSTALL_DIR]
+Usage: install.sh [--docker | --podman] [--usb] [INSTALL_DIR]
 
 Install Tusj to /srv/tusj. Podman is preferred when available; use --docker
 to select Docker explicitly. INSTALL_DIR overrides the default location.
+
+--usb  Detect connected Brother QL USB printers and give the backend container
+       access to them (generates compose.usb.yaml). Rerun with --usb after
+       connecting another printer.
 
 Run from a checkout, or pipe this script from GitHub with curl. When piped,
 the installer downloads the Tusj source archive before installing.
@@ -16,9 +20,14 @@ EOF
 requested_runtime=auto
 install_dir=/srv/tusj
 install_dir_set=false
+usb=false
 
 while (($#)); do
   case "$1" in
+    --usb)
+      usb=true
+      shift
+      ;;
     --docker|--podman)
       runtime="${1#--}"
       if [[ "$requested_runtime" != auto && "$requested_runtime" != "$runtime" ]]; then
@@ -99,7 +108,12 @@ else
   repo_root="$source_temp"
 fi
 
-for required_file in compose.yaml config.example.yaml; do
+usb_script="$repo_root/scripts/raspberry-pi/usb.sh"
+required_files=(compose.yaml config.example.yaml)
+if [[ "$usb" == true ]]; then
+  required_files+=(scripts/raspberry-pi/usb.sh)
+fi
+for required_file in "${required_files[@]}"; do
   if [[ ! -f "$repo_root/$required_file" ]]; then
     printf 'Required project file is missing: %s\n' "$repo_root/$required_file" >&2
     exit 1
@@ -209,9 +223,85 @@ mkdir -p "$install_dir/prints"
 
 printf 'Installed Tusj files in %s using %s.\n' "$install_dir" "$selected_runtime"
 
+usb_override=compose.usb.yaml
+usb_problems=0
+if [[ -f "$usb_script" ]]; then
+  # Also used at boot by the unit below, and kept current on every update.
+  cp "$usb_script" "$install_dir/tusj-usb.sh"
+  chmod 0755 "$install_dir/tusj-usb.sh"
+fi
+
+if [[ "$usb" == true ]]; then
+  # shellcheck source=usb.sh
+  source "$usb_script"
+  cat <<EOF
+
+USB printers: scanning for connected Brother QL printers. Tusj will write
+$install_dir/$usb_override, which maps only those device nodes into the backend
+container (no privileged mode, no other USB devices).
+EOF
+  usb_printers=()
+  while IFS= read -r usb_line; do
+    [[ -n "$usb_line" ]] && usb_printers+=("$usb_line")
+  done < <(usb_scan)
+
+  if ((${#usb_printers[@]} == 0)); then
+    printf 'No supported Brother QL USB printer found. Connect it, switch it on, and rerun with --usb.\n' >&2
+    printf 'Removing any earlier USB mapping; network printers are not affected.\n' >&2
+    usb_problems=1
+  else
+    printf 'Detected:\n'
+    for usb_line in "${usb_printers[@]}"; do
+      IFS=$'\t' read -r usb_vid usb_pid usb_model usb_path <<<"$usb_line"
+      printf '  %s  usb://0x%s:0x%s  %s\n' "$usb_model" "$usb_vid" "$usb_pid" "$usb_path"
+    done
+  fi
+  if ! usb_write_override "$install_dir/$usb_override" "${usb_printers[@]}"; then
+    printf 'Could not write %s/%s.\n' "$install_dir" "$usb_override" >&2
+    exit 1
+  fi
+
+  if ((${#usb_printers[@]})); then
+    usb_user="$(id -un)"
+    if [[ "$selected_runtime" == Podman && "$(id -u)" != 0 ]]; then
+      printf 'Rootless Podman: the container runs as %s, so a udev rule will make these printers owned by %s.\n' \
+        "$usb_user" "$usb_user"
+      if ! { usb_setup_udev "$usb_user" "${usb_printers[@]}" && usb_check_access "${usb_printers[@]}"; }; then
+        printf 'USB permission setup is incomplete. See docs/usb-printers.md ("Diagnosing").\n' >&2
+        usb_problems=1
+      fi
+      usb_scope=user
+    else
+      printf '%s runs the backend as root, so no permission changes are needed.\n' "$selected_runtime"
+      usb_scope=system
+    fi
+    # The device numbers change when the Pi reboots, so refresh the mapping at boot.
+    if ! usb_install_boot_unit "$usb_scope" "$install_dir" "${compose[@]}"; then
+      printf 'Could not install %s; after a reboot rerun install.sh --usb to refresh the USB mapping.\n' \
+        "$usb_unit_name" >&2
+      usb_problems=1
+    fi
+  fi
+fi
+
 cd "$install_dir"
-"${compose[@]}" pull
-"${compose[@]}" up -d
+compose_files=()
+if [[ -f "$usb_override" ]]; then
+  compose_files=(-f compose.yaml -f "$usb_override")
+  if [[ "$usb" != true ]]; then
+    printf 'Using the existing %s. Run with --usb to refresh the printer list.\n' "$usb_override"
+  fi
+fi
+"${compose[@]}" "${compose_files[@]}" pull
+if [[ "$usb" == true ]]; then
+  # Recreate the containers so the new device mapping takes effect.
+  if ! usb_apply "$install_dir" force "${compose[@]}"; then
+    printf 'Tusj could not be started with the USB mapping; see the messages above.\n' >&2
+    exit 1
+  fi
+else
+  "${compose[@]}" "${compose_files[@]}" up -d
+fi
 
 # Start Tusj again after a reboot or power cut.
 user="${USER:-$(id -un)}"
@@ -225,7 +315,8 @@ if [[ "$selected_runtime" == Podman && "$(id -u)" == 0 ]]; then
   # Rootful Podman: the system-wide service restarts containers at boot.
   systemctl enable --now podman-restart.service >/dev/null 2>&1 || restart_hint
 elif [[ "$selected_runtime" == Podman ]]; then
-  # Rootless Podman: "restart: unless-stopped" is carried out by podman-restart.service in
+  # Rootless Podman: podman-restart.service starts only containers whose restart policy is
+  # "always" (not "unless-stopped"), which is why compose.yaml uses "restart: always". It runs in
   # the user's systemd instance, which only runs at boot when lingering is enabled.
   if [[ "$(loginctl show-user "$user" --property=Linger --value 2>/dev/null)" != yes ]]; then
     if loginctl enable-linger "$user" 2>/dev/null || sudo -n loginctl enable-linger "$user" 2>/dev/null; then
@@ -249,3 +340,10 @@ fi
 
 address="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
 printf '\nTusj is starting. Open http://%s:8080\n' "${address:-<raspberry-pi-address>}"
+if [[ "$usb" == true ]]; then
+  if ((usb_problems)); then
+    printf 'USB setup finished with warnings (see above).\n'
+  else
+    printf 'In Tusj, add the printer with the connection shown above, e.g. usb://0x04f9:0x2042.\n'
+  fi
+fi

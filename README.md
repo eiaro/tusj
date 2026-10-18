@@ -39,7 +39,7 @@ The installer pulls prebuilt images, so nothing is compiled on the machine. Open
 
 Tusj needs a **64-bit OS**: on a Raspberry Pi 3, 4 or 5, install *Raspberry Pi OS Lite (64-bit)* with Raspberry Pi Imager. The installer stops with an explanation on a 32-bit OS.
 
-The command above installs the current `main` build. To pin a release, set `TUSJ_IMAGE_TAG` (e.g. `v0.2.0`) in `/srv/tusj/.env`.
+The command above installs the current `main` build. To pin a release, set `TUSJ_IMAGE_TAG` (e.g. `v0.1.0-alpha`) in `/srv/tusj/.env`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash
@@ -56,6 +56,8 @@ To choose Docker explicitly, pass `--docker` to the script:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash -s -- --docker
 ```
+
+**USB printers.** Connect and switch on the printer, then add `--usb` (`… | bash -s -- --usb`, or `./scripts/raspberry-pi/install.sh --usb` from a checkout). The installer lists the Brother QL printers it finds, maps only those into the backend container, and tells you about any step that needs `sudo`. Then add the printer in Tusj with `usb://0x04f9:0x2042` (the ID it printed). Run it again with `--usb` after connecting another printer. Details, permissions, reboot behaviour and troubleshooting: [docs/usb-printers.md](docs/usb-printers.md).
 
 GitHub Actions runs the backend tests and the frontend build first, then builds `linux/amd64` and `linux/arm64` images for pull requests and publishes them to GHCR on pushes to `main` (tagged `edge`) and version tags (`v*`). The first time the packages are published, make `tusj-backend` and `tusj-frontend` public in their GitHub package settings if the Pi should pull images without registry credentials.
 

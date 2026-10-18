@@ -2,6 +2,10 @@
 
 All notable changes to Tusj. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- **USB printers in the installer:** `install.sh --usb` detects connected Brother QL printers and generates `compose.usb.yaml`, which maps only those devices into the backend container. See [docs/usb-printers.md](docs/usb-printers.md).
+
 ## [0.2.0] — 2026-10-18
 
 Install with one command on a Raspberry Pi, from prebuilt images; Quick label gets emoji and icons.

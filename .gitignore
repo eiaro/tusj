@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 prints/
 config.yaml
+compose.usb.yaml
