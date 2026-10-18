@@ -71,7 +71,7 @@ Since labels are drawn for the loaded tape, this is mostly work in the layout he
 
 ### Project
 
-- [ ] CI on every push: backend tests and the frontend build.
+- [x] CI on every push: backend tests and the frontend build (GitHub Actions, before images are published).
 - [ ] Frontend tests.
 
 ---

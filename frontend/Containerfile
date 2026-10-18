@@ -1,4 +1,6 @@
-FROM docker.io/library/node:22-alpine AS build
+# The build output is plain static files, so build on the machine's own architecture
+# ($BUILDPLATFORM) instead of under emulation when producing arm64 images.
+FROM --platform=$BUILDPLATFORM docker.io/library/node:22-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./

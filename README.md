@@ -40,6 +40,30 @@ Open **`http://<host>:8080`** on your phone, go to **⚙ Settings → Printers**
 
 > Create `config.yaml` before the first start; otherwise the container runtime may create a *folder* with that name, which Tusj reports as an error.
 
+### Raspberry Pi installation
+
+Tusj needs a **64-bit OS**: on a Raspberry Pi 3, 4 or 5, install *Raspberry Pi OS Lite (64-bit)* with Raspberry Pi Imager. The installer stops with an explanation on a 32-bit OS.
+
+Run this on the Pi to install the latest version from GitHub:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash
+```
+
+The installer downloads the source, then puts the application, `compose.yaml` and initial configuration in `/srv/tusj`. It pulls the prebuilt multi-architecture images from GHCR and starts Tusj. It prefers Podman when Podman Compose is available and otherwise uses Docker Compose. The install directory must be writable by the user running the command; prepare it if needed with `sudo install -d -o "$(id -u)" -g "$(id -g)" /srv/tusj`.
+
+**Starting after a reboot.** With rootless Podman, the installer enables lingering for your user and `podman-restart.service`, so Tusj comes back after a reboot or power cut. If it isn't allowed to enable lingering, it prints the one command to run (`sudo loginctl enable-linger <user>`). With Docker, the Docker service must be enabled at boot.
+
+**Updating.** Run the same command again. `config.yaml` and files you added to `templates/` or `plugins/` are kept. If you changed a file that ships with Tusj, it is replaced by the new version and your copy is kept next to it as `<file>.local-<date>` — give your own label types new file names to avoid that.
+
+To choose Docker explicitly, pass `--docker` to the script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash -s -- --docker
+```
+
+GitHub Actions runs the backend tests and the frontend build first, then builds `linux/amd64` and `linux/arm64` images for pull requests and publishes them to GHCR on pushes to `main` and version tags (`v*`). The `main` branch also updates the `latest` tag. The first time the packages are published, make `tusj-backend` and `tusj-frontend` public in their GitHub package settings if the Pi should pull images without registry credentials.
+
 <details>
 <summary>Podman in WSL</summary>
 

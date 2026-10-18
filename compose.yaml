@@ -3,6 +3,7 @@ name: tusj
 # Run with: podman compose up -d --build
 services:
   backend:
+    image: ghcr.io/eiaro/tusj-backend:${TUSJ_IMAGE_TAG:-latest}
     build: ./backend
     ports:
       - "8000:8000"
@@ -21,6 +22,7 @@ services:
       retries: 3
 
   frontend:
+    image: ghcr.io/eiaro/tusj-frontend:${TUSJ_IMAGE_TAG:-latest}
     build: ./frontend
     ports:
       - "8080:80"  # rootless Podman can't bind ports below 1024
