@@ -18,11 +18,6 @@ BASH = next((p for p in (r"C:\Program Files\Git\bin\bash.exe",) if Path(p).exist
 pytestmark = pytest.mark.skipif(BASH is None, reason="bash is not available")
 
 
-def whoami():
-    # The user the installer sees; a mocked id is not reliable under Git Bash.
-    return subprocess.run([BASH, "-c", "id -un"], capture_output=True, text=True).stdout.strip()
-
-
 def posix(path):
     return Path(path).as_posix()
 
@@ -96,16 +91,27 @@ class Env:
 
     def clear_devices(self):
         self.sh('rm -rf "$1"/*', posix(self.sysfs))
-    def run(self, *args, uid=1000, **extra):
-        env = dict(os.environ)
+    def environ(self, uid=1000, **extra):
+        """Environment for every script run. Nothing about systemd or the CI host leaks in:
+        INVOCATION_ID (set when the runner itself is a systemd service) is dropped unless a
+        test passes it explicitly."""
+        env = {k: v for k, v in os.environ.items() if k not in ("INVOCATION_ID", "MOCK_FAIL")}
         env.update(self.vars)
         env.update({k: str(v) for k, v in extra.items()})
         env["MOCK_UID"] = str(uid)
         env["PATH"] = f"{self.bin}{os.pathsep}{env['PATH']}"
         env["HOME"] = posix(self.tmp / "home")
+        return env
+
+    def user(self, uid=1000):
+        """The user name the scripts see through `id -un`, whichever `id` bash resolves."""
+        r = subprocess.run([BASH, "-c", "id -un"], env=self.environ(uid), capture_output=True, text=True)
+        return r.stdout.strip()
+
+    def run(self, *args, uid=1000, **extra):
         return subprocess.run(
             [BASH, posix(INSTALL), *args, posix(self.install_dir)],
-            env=env, capture_output=True, text=True, timeout=120,
+            env=self.environ(uid, **extra), capture_output=True, text=True, timeout=120,
         )
 
     def calls(self):
@@ -153,7 +159,7 @@ def test_one_printer_rootless_podman(env):
     assert "podman compose -f compose.yaml -f compose.usb.yaml pull" in env.calls()
     assert "podman compose -f compose.yaml -f compose.usb.yaml up -d" in env.calls()
     rules = (env.rules_dir / "99-tusj-usb.rules").read_text()
-    assert f'ATTR{{idVendor}}=="04f9", ATTR{{idProduct}}=="2042", OWNER="{whoami()}", MODE="0660"' in rules
+    assert f'ATTR{{idVendor}}=="04f9", ATTR{{idProduct}}=="2042", OWNER="{env.user()}", MODE="0660"' in rules
     assert "GROUP" not in rules
     unit = (env.user_units / "tusj-usb.service").read_text()
     assert "refresh --install-dir" in unit and "-- podman compose" in unit
@@ -211,7 +217,7 @@ def test_docker_needs_no_udev_rules_and_uses_system_unit(env):
     assert not list(env.rules_dir.iterdir())
     unit = (env.system_units / "tusj-usb.service").read_text()
     assert "-- docker compose" in unit and "After=network-online.target docker.service" in unit
-    assert f"User={whoami()}" in unit
+    assert f"User={env.user()}" in unit
     assert "systemctl enable tusj-usb.service" in env.calls()
 
 
@@ -244,8 +250,7 @@ def test_failed_permission_setup_warns_but_still_starts(env):
 
 
 def refresh(env, *compose, **extra):
-    environ = {**os.environ, **env.vars, "PATH": f"{env.bin}{os.pathsep}{os.environ['PATH']}"}
-    environ.update({k: str(v) for k, v in extra.items()})
+    environ = env.environ(**extra)
     return subprocess.run(
         [BASH, posix(env.install_dir / "tusj-usb.sh"), "refresh", "--install-dir",
          posix(env.install_dir), "--", *(compose or ("docker", "compose"))],
@@ -296,7 +301,7 @@ def test_refresh_recreates_when_never_applied(env):
     (env.install_dir / ".compose.usb.applied").unlink()
     env.log.write_text("")
     assert refresh(env, "podman", "compose").returncode == 0
-    assert [c for c in env.calls() if c.endswith(" down") or c.endswith(" up -d")] == [
+    assert [c for c in env.calls() if c.startswith("podman") and c.endswith((" down", " up -d"))] == [
         "podman compose -f compose.yaml -f compose.usb.yaml down",
         "podman compose -f compose.yaml -f compose.usb.yaml up -d",
     ]
@@ -345,27 +350,45 @@ def test_installer_rerun_is_idempotent(env):
     assert (env.install_dir / ".compose.usb.applied").read_text() == before
 
 
-def test_podman_runs_in_own_scope_under_systemd_only(env):
+def changed_mapping(env, runtime):
+    """Install with one printer, then move it to another device number and clear the log."""
     env.device(1, 5)
-    env.run("--podman", "--usb")
+    env.run(f"--{runtime}", "--usb")
     env.clear_devices()
     env.device(1, 6)
     env.log.write_text("")
-    assert refresh(env, "podman", "compose").returncode == 0
-    assert not [c for c in env.calls() if c.startswith("systemd-run")]
-    env.clear_devices()
-    env.device(1, 7)
-    env.log.write_text("")
-    assert refresh(env, "podman", "compose", INVOCATION_ID="1").returncode == 0
-    scoped = [c for c in env.calls() if c.startswith("systemd-run")]
-    assert len(scoped) == 2 and all("--scope --collect" in c and "--user" in c for c in scoped)
-    # Docker's daemon owns its containers; no scope needed.
-    env.clear_devices()
-    env.device(1, 8)
-    env.log.write_text("")
-    assert refresh(env, "docker", "compose", INVOCATION_ID="1").returncode == 0
-    assert not [c for c in env.calls() if c.startswith("systemd-run")]
 
+
+FILES = "-f compose.yaml -f compose.usb.yaml"
+
+
+def test_podman_not_scoped_outside_systemd(env):
+    changed_mapping(env, "podman")
+    assert refresh(env, "podman", "compose").returncode == 0  # INVOCATION_ID unset
+    assert env.calls() == [f"podman compose {FILES} down", f"podman compose {FILES} up -d"]
+
+
+def test_rootless_podman_scoped_under_systemd(env):
+    changed_mapping(env, "podman")
+    assert refresh(env, "podman", "compose", INVOCATION_ID="1").returncode == 0
+    scope = "systemd-run --quiet --scope --collect --user"
+    # Each Compose call is logged by the wrapper and again by the command it runs.
+    assert env.calls() == [
+        f"{scope} podman compose {FILES} down", f"podman compose {FILES} down",
+        f"{scope} podman compose {FILES} up -d", f"podman compose {FILES} up -d",
+    ]
+
+
+def test_docker_never_scoped_under_systemd(env):
+    changed_mapping(env, "docker")
+    assert refresh(env, "docker", "compose", INVOCATION_ID="1").returncode == 0
+    assert env.calls() == [f"docker compose {FILES} down", f"docker compose {FILES} up -d"]
+
+
+def test_ci_systemd_environment_does_not_leak_into_tests(env, monkeypatch):
+    monkeypatch.setenv("INVOCATION_ID", "from-the-ci-runner")
+    assert "INVOCATION_ID" not in env.environ()
+    assert env.environ(INVOCATION_ID="1")["INVOCATION_ID"] == "1"
 
 def test_boot_unit_does_not_kill_leftover_processes(env):
     env.device(1, 5)
@@ -376,8 +399,7 @@ def test_boot_unit_does_not_kill_leftover_processes(env):
 
 
 def test_rootful_podman_unit_waits_for_podman_restart(env):
-    probe = subprocess.run([BASH, "-c", "id -u"], capture_output=True, text=True,
-                           env={**os.environ, "PATH": f"{env.bin}{os.pathsep}{os.environ['PATH']}", "MOCK_UID": "0"})
+    probe = subprocess.run([BASH, "-c", "id -u"], capture_output=True, text=True, env=env.environ(uid=0))
     if probe.stdout.strip() != "0":
         pytest.skip("this bash does not let the test fake uid 0")
     env.device(1, 5)
