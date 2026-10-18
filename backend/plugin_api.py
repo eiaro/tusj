@@ -15,13 +15,15 @@ from typing import Any
 from PIL import Image
 
 import layout
+import symbols
 from i18n import AppError, format_date, localized
 from layout import FONT_BOLD, FONT_REGULAR, Scale, TextFlow
 from media import Media
 
 __all__ = [
     "Plugin", "LabelType", "RenderContext", "MediaRequirements", "PluginError",
-    "field", "option", "setting", "resolve_values", "layout", "Media", "Scale", "TextFlow", "FONT_BOLD", "FONT_REGULAR",
+    "field", "option", "setting", "resolve_values", "layout", "symbols", "Media", "Scale", "TextFlow", "FONT_BOLD",
+    "FONT_REGULAR",
 ]
 
 Text = str | dict[str, str]
@@ -39,6 +41,7 @@ def field(id: str, type: str, label: Text, *, required: bool = False, default: A
       multi-select  options: [option(..., icon="🥛"), ...]
       number        min, max, step
       lookup        placeholder: Text  (values come from LabelType.search())
+      text          placeholder: Text, help: Text (a hint shown under the field)
     """
     if type not in FIELD_TYPES:
         raise ValueError(f"Unknown field type '{type}'")

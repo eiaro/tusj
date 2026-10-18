@@ -1,6 +1,8 @@
 name: tusj
 
-# Run with: podman compose up -d --build
+# Installed copies pull the published images (the install script does this).
+# From a source checkout: podman compose up -d --build
+# TUSJ_IMAGE_TAG picks another tag, e.g. a release like v0.2.0.
 services:
   backend:
     image: ghcr.io/eiaro/tusj-backend:${TUSJ_IMAGE_TAG:-latest}

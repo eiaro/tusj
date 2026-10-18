@@ -27,24 +27,19 @@ Print labels for freezer bags, leftovers, spice jars and parts bins from your ph
 
 ## Quick start
 
-You need a Brother QL label printer on your network and a Linux machine with [Podman](https://podman.io) (Docker works too).
+You need a Brother QL label printer on your network and a 64-bit Linux machine with [Podman](https://podman.io) or Docker — typically a Raspberry Pi. Run this on it:
 
 ```bash
-git clone https://github.com/eiaro/tusj.git
-cd tusj
-cp config.example.yaml config.yaml
-podman compose up -d --build
+curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash
 ```
 
-Open **`http://<host>:8080`** on your phone, go to **⚙ Settings → Printers** and add your printer — **Find printer on the network** fills in the address and model for you.
-
-> Create `config.yaml` before the first start; otherwise the container runtime may create a *folder* with that name, which Tusj reports as an error.
+The installer pulls prebuilt images, so nothing is compiled on the machine. Open **`http://<host>:8080`** on your phone, go to **⚙ Settings → Printers** and add your printer — **Find printer on the network** fills in the address and model for you. Details, updating and building from source are below.
 
 ### Raspberry Pi installation
 
 Tusj needs a **64-bit OS**: on a Raspberry Pi 3, 4 or 5, install *Raspberry Pi OS Lite (64-bit)* with Raspberry Pi Imager. The installer stops with an explanation on a 32-bit OS.
 
-Run this on the Pi to install the latest version from GitHub:
+The command above installs the current `main` build. To pin a release, set `TUSJ_IMAGE_TAG` (e.g. `v0.2.0`) in `/srv/tusj/.env`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash
@@ -62,7 +57,7 @@ To choose Docker explicitly, pass `--docker` to the script:
 curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash -s -- --docker
 ```
 
-GitHub Actions runs the backend tests and the frontend build first, then builds `linux/amd64` and `linux/arm64` images for pull requests and publishes them to GHCR on pushes to `main` and version tags (`v*`). The `main` branch also updates the `latest` tag. The first time the packages are published, make `tusj-backend` and `tusj-frontend` public in their GitHub package settings if the Pi should pull images without registry credentials.
+GitHub Actions runs the backend tests and the frontend build first, then builds `linux/amd64` and `linux/arm64` images for pull requests and publishes them to GHCR on pushes to `main` (tagged `edge`) and version tags (`v*`). The first time the packages are published, make `tusj-backend` and `tusj-frontend` public in their GitHub package settings if the Pi should pull images without registry credentials.
 
 <details>
 <summary>Podman in WSL</summary>
@@ -83,7 +78,7 @@ events_logger = "file"
 | <img src="docs/images/label-premade.png" alt="Premade food label" width="320"> | **Premade food** — title, made date, expiry from presets (+3 days … +1 month) or a custom date, and allergens. |
 | <img src="docs/images/label-spice.png" alt="Spice jar label with an ornate frame" width="320"> | **Spice jar** — big centred name in a decorative frame, optional expiry. Frames: `simple`, `double`, `ornate`. |
 | <img src="docs/images/label-part.png" alt="InvenTree part label with QR code" width="320"> | **InvenTree part / location** — search as you type; the QR code uses your InvenTree's own barcode format, so scanning it in the InvenTree app opens the part. |
-| <img src="docs/images/label-quick.png" alt="Quick label with QR code" width="320"> | **Quick label** — free text, small text and an optional QR code (a link, a Wi-Fi password, anything). |
+| <img src="docs/images/label-quick.png" alt="Quick label with QR code" width="320"> | **Quick label** — free text, small text and an optional symbol: a QR code (`QR https://…`, a link, a Wi-Fi password, anything), an emoji (`🔥`, `:tada:`, `:)`) or a [Material Design Icon](https://pictogrammers.com/library/mdi/) (`mdi:home`). |
 
 Labels are drawn for the tape that is loaded, from 12 mm up to 102 mm — here the same part on 29 mm tape:
 
@@ -135,6 +130,10 @@ Tusj ships in English and Norwegian Bokmål; the language follows the browser an
 | Containers | `backend/Containerfile`, `frontend/Containerfile` (nginx), `compose.yaml` |
 
 ```bash
+# Build and run the containers from source instead of pulling images
+cp config.example.yaml config.yaml   # create it first, or the runtime makes a folder with that name
+podman compose up -d --build
+
 # Backend, with reload
 cd backend && pip install -r requirements-dev.txt
 uvicorn main:app --reload --port 8000

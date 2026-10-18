@@ -2,6 +2,25 @@
 
 All notable changes to Tusj. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-10-18
+
+Install with one command on a Raspberry Pi, from prebuilt images; Quick label gets emoji and icons.
+
+### Running it
+
+- **One-command install** for a Raspberry Pi or any 64-bit Linux machine: `curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-pi/install.sh | bash`. It installs to `/srv/tusj`, prefers Podman and falls back to Docker (`--docker` picks Docker), and prints the right `apt` command if neither is installed. Running it again updates Tusj and keeps `config.yaml` and your own templates and plugins.
+- **Prebuilt images** for `linux/amd64` and `linux/arm64` on GitHub Container Registry (`ghcr.io/eiaro/tusj-backend` and `tusj-frontend`), built by GitHub Actions after the backend tests and frontend build pass. `main` is published as `edge` and releases by their version tag (`v0.2.0`). `compose.yaml` pulls `edge` by default; set `TUSJ_IMAGE_TAG` to pin a release. Building from source still works with `--build`.
+
+### Labels
+
+- **Quick label** can show an emoji or an icon instead of a QR code. The *Symbol* field takes `QR https://…` for a QR code, an emoji (`🔥`, `:tada:`) or an emoticon (`:)`, `<3`), or a Material Design Icon (`mdi:home`).
+- Plugins get `symbols.symbol_image()` and a `symbol` argument on `layout.qr_beside_text()`; text fields can have a `placeholder` and a `help` text. See [docs/plugins.md](docs/plugins.md).
+
+### Upgrading
+
+- **Quick label:** a link without `QR` in front is no longer turned into a QR code; it shows an explanation instead. Saved labels and *Print again* entries that use the old `qr` field keep working.
+- **Emoji** need the `fonts-noto-color-emoji` font, which the backend image includes. Emoji are printed as black-and-white dithered images. Emoji built from several characters (such as 👨‍🍳) are drawn as separate symbols.
+
 ## [0.1.0-alpha] — 2026-10-13
 
 The first public version: label printing from your phone to a Brother QL printer, for the kitchen and the workshop.
@@ -44,4 +63,5 @@ The first public version: label printing from your phone to a Brother QL printer
 
 See the [roadmap](ROADMAP.md) for what's next.
 
+[0.2.0]: https://github.com/eiaro/tusj/releases/tag/v0.2.0
 [0.1.0-alpha]: https://github.com/eiaro/tusj/releases/tag/v0.1.0-alpha

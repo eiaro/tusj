@@ -169,13 +169,14 @@ def qr_image(data: str, max_size_px: int, error_correction: str = "M") -> Image.
 
 
 def qr_beside_text(width_px: int, scale: "Scale", qr_data: str | None, lines: list, qr_fraction: float = 1 / 3,
-                   min_height_px: int = 0) -> Image.Image:
+                   min_height_px: int = 0, symbol: Image.Image | None = None) -> Image.Image:
     """An endless-tape label with a QR code on the left and text on the right, both
     vertically centred. `lines` is a list of (text, font) where font is a FreeTypeFont or
     a callable (draw, column_width) -> FreeTypeFont, e.g. to fit a headline to the column.
-    Without qr_data the text uses the full width."""
+    `symbol` is a ready-made image (e.g. from symbols.symbol_image) shown instead of a QR code.
+    Without qr_data or symbol the text uses the full width."""
     pad, gap, line_gap = scale.px(24, 6), scale.px(20, 6), scale.px(10, 4)
-    qr = qr_image(qr_data, int(width_px * qr_fraction)) if qr_data else None
+    qr = symbol if symbol is not None else qr_image(qr_data, int(width_px * qr_fraction)) if qr_data else None
     text_x = pad + (qr.width + gap if qr else 0)
     column = width_px - text_x - pad
 

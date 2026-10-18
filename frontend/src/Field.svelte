@@ -41,7 +41,9 @@
 <div class="field">
   {#if spec.type === 'text'}
     {@render title(id)}
-    <input {id} type="text" bind:value autocomplete="off" enterkeyhint="done" />
+    <input {id} type="text" bind:value autocomplete="off" enterkeyhint="done"
+      placeholder={spec.placeholder ? pick(spec.placeholder) : undefined} />
+    {#if spec.help}<p class="hint">{pick(spec.help)}</p>{/if}
   {:else if spec.type === 'number'}
     {@render title(id)}
     <input {id} type="number" inputmode="decimal" min={spec.min} max={spec.max} step={spec.step ?? 'any'} bind:value />

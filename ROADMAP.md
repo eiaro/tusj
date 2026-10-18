@@ -16,20 +16,22 @@ Have an idea or need something here sooner? Open an issue.
 | **Any tape width** | Labels are drawn for the loaded tape, 12–102 mm endless; sizes scale from a 62 mm design with a readable minimum font. |
 | **Plugins** | Python plugins add label types without changing the app: fields (incl. search-as-you-type), settings with secrets, own translations. Broken plugins are isolated. See [docs/plugins.md](docs/plugins.md). |
 | **InvenTree** | Part and stock location labels; the QR code uses the instance's own barcode format (`/api/barcode/generate/`, JSON fallback on older versions). Tested against a real InvenTree. |
-| **Quick label** | Free text with an optional QR code; also the example plugin. |
+| **Quick label** | Free text with an optional QR code, emoji or Material Design icon; also the example plugin. |
 | **Several printers** | Brother QL over the network, a "save as image" printer, label size per printer, default printer per plugin, printer choice when printing, a queue per printer. |
 | **Everyday use** | Copies (one job, cut between), "recent prints" with *print again*, printer status in Settings, network search for printers. |
 | **Running it** | Podman/Docker containers with a healthcheck; `config.yaml` kept out of git; backend test suite (pytest). |
+| **Easy install** | One `curl` command installs to `/srv/tusj` from multi-architecture images (amd64/arm64) published by GitHub Actions. |
 
 ---
 
 ## 🔜 Next
 
-### First alpha release — `0.1.0-alpha`
+### Releases
 
 - [x] Version number in the API and the app.
 - [x] Release notes: [CHANGELOG.md](CHANGELOG.md).
 - [ ] Tag `v0.1.0-alpha`.
+- [ ] Tag `v0.2.0`.
 
 ### Raspberry Pi and USB printers
 
@@ -73,6 +75,7 @@ Since labels are drawn for the loaded tape, this is mostly work in the layout he
 
 - [x] CI on every push: backend tests and the frontend build (GitHub Actions, before images are published).
 - [ ] Frontend tests.
+- [ ] Publish a `latest` image tag for stable releases. Today only `main` is published, as `edge`, and `compose.yaml` defaults to `edge`. `v0.2.0` is the first release `latest=auto` would tag (it skips pre-releases such as `v0.1.0-alpha`). Once `v0.2.0` is published, set `flavor: latest=auto` in `.github/workflows/container-images.yml` and make `latest` the default in `compose.yaml` — in that order, or installs pull a tag that doesn't exist yet.
 
 ---
 

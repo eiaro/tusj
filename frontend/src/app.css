@@ -112,6 +112,7 @@ main {
 
 /* Fields */
 .field { margin-bottom: 20px; }
+.field .hint { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
 
 .field label, .field .label {
   display: block;

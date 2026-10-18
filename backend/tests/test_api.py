@@ -83,7 +83,29 @@ def test_print_to_unreachable_printer(client, config_file):
 
 
 def test_quick_label_plugin(client):
-    r = client.post("/preview/quick_label.text", json={"title": "Batteries", "qr": "https://example.com"})
+    r = client.post("/preview/quick_label.text", json={"title": "Batteries", "symbol": "QR https://example.com"})
     assert r.status_code == 200
     without_qr = client.post("/preview/quick_label.text", json={"title": "Batteries"})
     assert r.content != without_qr.content
+
+
+def test_quick_label_symbols(client):
+    plain = client.post("/preview/quick_label.text", json={"title": "Batteries"}).content
+    icon = client.post("/preview/quick_label.text", json={"title": "Batteries", "symbol": "mdi:battery"})
+    assert icon.status_code == 200
+    assert icon.content != plain
+
+
+def test_quick_label_accepts_the_old_qr_field(client):
+    old = client.post("/preview/quick_label.text", json={"title": "A", "qr": "https://example.com"})
+    new = client.post("/preview/quick_label.text", json={"title": "A", "symbol": "QR https://example.com"})
+    assert old.status_code == 200
+    assert old.content == new.content
+
+
+def test_quick_label_rejects_a_bare_link(client):
+    r = client.post("/preview/quick_label.text", json={"title": "A", "symbol": "https://example.com"})
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "quick_label.invalid_symbol"
+    r = client.post("/preview/quick_label.text", json={"title": "A", "symbol": "mdi:nope-nope"})
+    assert r.json()["detail"]["code"] == "quick_label.unknown_icon"

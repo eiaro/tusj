@@ -65,7 +65,7 @@ Create fields with `field(id, type, label, required=False, default=None, **extra
 
 | Type | Value sent to `render()` (after `resolve_values`) | Extra keys |
 |---|---|---|
-| `text` | `str` | |
+| `text` | `str` | `placeholder=...`, `help=...` (a hint under the field) |
 | `number` | `int` or `float` | `min`, `max`, `step` |
 | `date` | `datetime.date` | `default="today"` |
 | `date-presets` | `datetime.date` | `presets=["+3d", "+1w", "+1m", "+1y"]` |
@@ -104,7 +104,8 @@ Helpers in `layout`:
 | `fit_font(draw, text, role, max_size, min_size, max_width)` | Largest font size that fits the text on one line |
 | `wrap(draw, text, font, max_width)` | Word wrap (breaks overlong words) |
 | `qr_image(data, max_size_px)` | Sharp black-on-white QR code |
-| `qr_beside_text(width, scale, qr_data, lines)` | Complete label: QR on the left, text lines on the right, vertically centred (used by Quick label and InvenTree) |
+| `qr_beside_text(width, scale, qr_data, lines, symbol=None)` | Complete label: QR (or a ready-made `symbol` image) on the left, text lines on the right, vertically centred (used by Quick label and InvenTree) |
+| `symbols.symbol_image(text, max_size_px)` | A QR code, emoji or Material Design Icon from text like `QR https://…`, `:tada:` or `mdi:home`, as black-and-white. Raises `symbols.SymbolError` (with a `code`) for text that isn't a symbol |
 | `border_padding(style, scale)` / `draw_border(img, style, scale)` | The built-in frames: `simple`, `double`, `ornate` |
 | `endless_canvas(width)` | Tall white scratch canvas |
 
