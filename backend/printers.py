@@ -152,8 +152,8 @@ def media_options() -> list[dict]:
             "length_mm": None if endless else label.tape_size[1],
             "endless": endless,
             "two_color": Media.from_label(label.identifier).two_color,
-            # Die-cut rendering comes in phase 6.
-            "supported": endless,
+            # Die-cut labels can be printed with designs from the label editor.
+            "supported": True,
         })
     return out
 
@@ -161,7 +161,7 @@ def media_options() -> list[dict]:
 def describe(cfg: dict) -> dict:
     """A printer as sent to the browser, with its media details."""
     media = Media.from_label(cfg["media"])
-    return {**cfg, "media_info": {"tape_mm": media.tape_mm, "endless": media.endless}}
+    return {**cfg, "media_info": {"id": media.id, "tape_mm": media.tape_mm, "endless": media.endless}}
 
 
 # --- Drivers ---

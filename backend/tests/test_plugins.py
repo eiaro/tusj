@@ -198,3 +198,16 @@ def test_resolve_values_rejects(values, code):
 def test_unknown_field_type():
     with pytest.raises(ValueError):
         field("x", "colour", "X")
+
+
+def test_bundled_plugins_win_over_old_copies(tmp_path):
+    # Older installs copied the bundled plugins into plugins/; those copies are ignored.
+    root = tmp_path / "plugins"
+    root.mkdir()
+    _write_plugin(root, "inventree", "raise RuntimeError('stale copy')\n")
+    _write_plugin(root, "good", GOOD_PLUGIN)
+    r = Registry(plugins_dir=root)
+    r.load()
+    assert r.get("inventree").source.endswith("bundled_plugins/inventree")
+    assert r.get("inventree").error is None
+    assert r.get("good").plugin is not None

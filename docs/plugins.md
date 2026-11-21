@@ -8,7 +8,7 @@ plugins/
     plugin.py
 ```
 
-Tusj loads every `plugins/*/plugin.py` on startup (restart the backend after adding or changing a plugin). A plugin that fails to load is listed under **Settings → Plugins** with its error; the rest of the app keeps working.
+Tusj loads every `plugins/*/plugin.py` on startup (restart the backend after adding or changing a plugin). A folder with the same name as a bundled plugin (`inventree`, `quick_label`) is ignored. A plugin that fails to load is listed under **Settings → Plugins** with its error; the rest of the app keeps working.
 
 > Plugins are ordinary Python code running inside the backend. Only install plugins you trust.
 
@@ -53,7 +53,7 @@ plugin = BoxPlugin()          # Tusj looks for this name
 
 The label type's id in the API is `<plugin id>.<label type id>`, here `boxes.box`.
 
-`plugins/quick_label/plugin.py` is a slightly larger example (QR code beside text). `plugins/inventree/plugin.py` shows settings, a `check()`, lookup fields backed by a web API, caching and plugin error messages.
+The plugins that ship with Tusj live in the backend image, in `backend/bundled_plugins/`: `quick_label/plugin.py` is a slightly larger example (QR code beside text), and `inventree/plugin.py` shows settings, a `check()`, lookup fields backed by a web API, caching and plugin error messages.
 
 ## Text and translations
 
@@ -110,6 +110,42 @@ Helpers in `layout`:
 | `endless_canvas(width)` | Tall white scratch canvas |
 
 Set `media = MediaRequirements(min_width_mm=29)` on a label type if it needs a minimum tape width; it is then greyed out when the loaded tape is too narrow.
+
+## Data for the label editor
+
+A plugin doesn't have to draw anything: it can provide **data sources** and leave the design to
+the label editor. A data source has a lookup field (search as you type) and a set of variables;
+a design that uses it places them anywhere on the label as `{<source id>.<variable>}`.
+
+```python
+from plugin_api import DataSource, Plugin, option, variable
+
+
+class BookSource(DataSource):
+    id = "book"                                  # also the lookup field id: {"book": "42"}
+    name = {"en": "Book", "nb": "Bok"}
+    icon = "📚"
+
+    def variables(self):
+        return [variable("title", {"en": "Title", "nb": "Tittel"}, sample="Kon-Tiki"),
+                variable("isbn", "ISBN", sample="978-82-02-00000-0")]
+
+    def search(self, query, lang):
+        return [option("42", "Kon-Tiki", description="Thor Heyerdahl")]
+
+    def fetch(self, value, lang):
+        return {"title": "Kon-Tiki", "isbn": "978-82-02-00000-0"}
+
+
+class BooksPlugin(Plugin):
+    id = "books"
+    def data_sources(self):
+        return [BookSource()]
+```
+
+`sample` is shown in the editor until a real record is picked. A design using the source above
+is printed with `POST /print/designs.<design id>` and `{"book": "42"}`. The InvenTree plugin
+provides `inventree.part`, `inventree.location` and `inventree.stockitem` this way.
 
 ## Settings
 

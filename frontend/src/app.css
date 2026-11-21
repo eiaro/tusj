@@ -66,6 +66,9 @@ header h1 { margin: 0; font-size: 20px; }
   color: var(--muted);
 }
 
+/* Two round buttons side by side in the header: only the first is pushed right. */
+.settings.editor-open + .settings { margin-left: 0; }
+
 .back {
   width: 40px;
   height: 40px;

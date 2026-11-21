@@ -15,12 +15,16 @@ PARTS = [
      "active": True},
     {"pk": 13, "name": "Resistor 1k", "full_name": "Resistor 1k", "IPN": None, "description": "", "active": True},
 ]
-LOCATIONS = [{"pk": 3, "name": "Drawer 3", "pathstring": "Workshop/Shelf A/Drawer 3"}]
+LOCATIONS = [{"pk": 3, "name": "Drawer 3", "pathstring": "Workshop/Shelf A/Drawer 3", "items": 4}]
+TEMPLATES = [{"pk": 1, "name": "Resistance", "units": "ohm"}, {"pk": 2, "name": "Package size", "units": ""}]
+PARAMETERS = {12: [{"part": 12, "data": "10k", "template_detail": TEMPLATES[0]},
+                   {"part": 12, "data": "0603", "template_detail": TEMPLATES[1]}]}
 
 
 class FakeInvenTree:
-    def __init__(self, barcode_endpoint=True):
+    def __init__(self, barcode_endpoint=True, version="0.17.1"):
         self.barcode_endpoint = barcode_endpoint
+        self.version = version
         self.calls = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -30,6 +34,12 @@ class FakeInvenTree:
             return httpx.Response(401, json={"detail": "Invalid token."})
         if path == "/api/user/me/":
             return httpx.Response(200, json={"username": "tester"})
+        if path == "/api/":
+            return httpx.Response(200, json={"server": "InvenTree", "version": self.version})
+        if path == "/api/part/parameter/template/":
+            return httpx.Response(200, json=TEMPLATES)
+        if path == "/api/part/parameter/":
+            return httpx.Response(200, json=PARAMETERS.get(int(params["part"]), []))
         if path == "/api/part/":
             q = params.get("search", "").lower()
             hits = [p for p in PARTS if q in p["name"].lower()]
@@ -174,3 +184,45 @@ def test_needs_at_least_29mm():
     lt = next(t for t in registry.get("inventree").plugin.label_types() if t.id == "part")
     assert lt.media.accepts(Media.from_label("29"))
     assert not lt.media.accepts(Media.from_label("12"))
+
+
+# --- Data sources for designs ---
+
+def source_data(client, source, record):
+    design = {"name": "x", "media": "62", "length_mm": 29, "source": f"inventree.{source}", "fields": [],
+              "elements": []}
+    return client.post("/designs/values", json={"design": design, "values": {source: record}}).json()
+
+
+def test_part_source_has_link_and_parameters(inventree, client):
+    sources = {s["id"]: s for s in client.get("/designs/meta").json()["sources"]}
+    variables = {v["id"]: v for v in sources["inventree.part"]["variables"]}
+    assert {"url", "param.resistance", "param.package_size"} <= set(variables)
+    assert variables["url"]["sample"].startswith("https://inv.test/")  # not example.com once set up
+
+    values = source_data(client, "part", 12)
+    assert values["part.url"] == "https://inv.test/web/part/12/"
+    assert values["part.param.resistance"] == "10k ohm"
+    assert values["part.param.package_size"] == "0603"
+
+
+def test_parameters_a_part_lacks_are_empty(inventree, client):
+    values = source_data(client, "part", 13)
+    assert values["part.param.resistance"] == ""  # known, so an element showing it is left out
+
+
+def test_location_source_links_to_the_classic_ui_on_old_inventree(client, monkeypatch, config_file):
+    fake = FakeInvenTree(version="0.13.5")
+    registry = Registry()
+    registry.load()
+    registry.get("inventree").plugin.transport = httpx.MockTransport(fake)
+    registry.configure({"inventree": {"settings": {"url": "https://inv.test/", "token": TOKEN}}})
+    monkeypatch.setattr(main, "registry", registry)
+    values = source_data(client, "location", 3)
+    assert values["location.url"] == "https://inv.test/stock/location/3/"
+    assert (values["location.parent"], values["location.items"]) == ("Shelf A", "4")
+
+
+def test_part_variables_without_inventree_configured(client):
+    sources = {s["id"]: s for s in client.get("/designs/meta").json()["sources"]}
+    assert "url" in {v["id"] for v in sources["inventree.part"]["variables"]}

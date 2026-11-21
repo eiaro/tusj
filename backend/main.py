@@ -8,6 +8,7 @@ import io
 import os
 import yaml
 
+import design as designs
 import printers
 from discovery import default_subnet, scan
 from jobs import JobLog
@@ -27,6 +28,7 @@ MAX_COPIES = 50
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    designs.add_examples()
     registry.load()
     registry.configure(load_config().get("plugins"))
     yield
@@ -170,7 +172,7 @@ def get_label_types():
             "icon": lt.icon,
             "fields": lt.fields(),
             "media": {"min_width_mm": lt.media.min_width_mm, "endless": lt.media.endless,
-                      "die_cut": lt.media.die_cut},
+                      "die_cut": lt.media.die_cut, "id": getattr(lt.media, "media_id", None)},
             "printer": default["id"] if default else None,
             "media_ok": bool(default) and lt.media.accepts(Media.from_label(default["media"])),
         })
@@ -223,6 +225,95 @@ def do_print(label_type_id: str, values: dict, lang: str, printer: str | None, c
 def print_label(label_type_id: str, values: dict, lang: str | None = None, printer: str | None = None,
                 copies: int = 1):
     return do_print(label_type_id, values, normalize_language(lang), printer, copies)
+
+
+# --- Label editor ---
+
+def _designs_plugin():
+    entry = registry.get("designs")
+    if not entry.plugin:
+        raise AppError(500, "plugin_broken", "The label editor failed to load", plugin="designs")
+    return entry.plugin
+
+
+@app.get("/designs/meta")
+def designs_meta():
+    """What the editor can offer: label sizes, data sources with their variables, field types."""
+    sources = [{
+        "id": ds_id,
+        "key": ds.id,
+        "plugin": entry.id,
+        "name": ds.name,
+        "icon": ds.icon,
+        "variables": ds.variables(),
+    } for ds_id, entry, ds in registry.data_sources()]
+    media = [designs.media_info(Media.from_label(m["id"])) for m in printers.media_options()]
+    return {"media": media, "sources": sources, "field_types": list(designs.FIELD_TYPES),
+            "element_types": list(designs.ELEMENT_TYPES)}
+
+
+@app.get("/designs/sources/{source_id}/search")
+def search_design_source(source_id: str, q: str = "", lang: str | None = None):
+    """Search a data source, to preview a design with a real record before publishing it."""
+    _, ds = registry.data_source(source_id)
+    return ds.search(q, normalize_language(lang)) if q.strip() else []
+
+
+@app.get("/designs")
+def list_designs():
+    return designs.list_designs()
+
+
+@app.get("/designs/{design_id}")
+def get_design(design_id: str):
+    return designs.load(design_id)
+
+
+@app.put("/designs/{design_id}")
+def save_design(design_id: str, data: dict):
+    """Publish a design: from now on it is a label type, designs.<id>."""
+    return designs.save(design_id, data)
+
+
+@app.delete("/designs/{design_id}")
+def delete_design(design_id: str):
+    designs.delete(design_id)
+    return {"ok": True}
+
+
+class DesignPreview(BaseModel):
+    design: dict
+    values: dict = {}
+
+
+def _draft(design: dict) -> dict:
+    """Validate a design still being edited: it need not be named until it is saved."""
+    if isinstance(design, dict) and not designs.has_text(design.get("name")):
+        design = {**design, "name": "untitled"}
+    return designs.validate(design)
+
+
+@app.post("/designs/preview")
+def preview_design(req: DesignPreview, lang: str | None = None, as_designed: bool = False):
+    """Draw an unsaved design, with sample text for anything not filled in. as_designed=true
+    returns landscape designs as seen in the editor instead of turned for the printer."""
+    lang = normalize_language(lang)
+    design = _draft(req.design)
+    media = Media.from_label(design["media"])
+    values = _designs_plugin().values_for(design, req.values, lang, sample=True)
+    image = designs.render(design, values, media, lang, turn=not as_designed)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return Response(buf.getvalue(), media_type="image/png")
+
+
+@app.post("/designs/values")
+def design_values(req: DesignPreview, lang: str | None = None):
+    """What each placeholder of an unsaved design holds right now (sample text for anything not
+    filled in), so the editor can show the data next to its name."""
+    lang = normalize_language(lang)
+    design = _draft(req.design)
+    return _designs_plugin().values_for(design, req.values, lang, sample=True)
 
 
 # --- Job log ---

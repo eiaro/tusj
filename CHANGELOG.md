@@ -4,7 +4,27 @@ All notable changes to Tusj. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-- **USB printers in the installer:** `install.sh --usb` detects connected Brother QL printers and generates `compose.usb.yaml`, which maps only those devices into the backend container. See [docs/usb-printers.md](docs/usb-printers.md).
+## [0.3.0] — 2026-11-21
+
+Design your own labels in the browser, with data from InvenTree; USB printers in the installer.
+
+### Labels
+
+- **Label editor** (prototype): design labels in the browser – text, QR codes, icons, boxes and lines placed in mm on a label of a fixed size, with the preview drawn by the backend exactly as it prints. Published designs (`designs/*.json`) appear on the start page like any other label type, can use die-cut labels and run along the tape. Plugins can provide **data sources** for designs; InvenTree offers parts, locations and stock items.
+- **More from InvenTree in designs:** a link to the part, location or stock item in InvenTree's web UI (`{part.url}`, becomes a QR code that opens in any phone camera), part parameters such as `{part.param.length}`, and units, keywords, default location, parent location, item count, expiry date and status.
+
+### Running it
+
+- The bundled plugins (InvenTree, Quick label) and the example designs now ship in the backend image, so switching image versions also switches them. `plugins/` is only for your own plugins; old copies of the bundled ones there are ignored.
+- **USB printers in the installer:** `install.sh --usb` detects connected Brother QL printers and generates `compose.usb.yaml`, which maps only those devices into the backend container. See [docs/usb-printers.md](docs/usb-printers.md). Tested with a QL-700 on a Raspberry Pi.
+- Releases now also publish the image tag `latest`; `edge` stays the default until `compose.yaml` switches over.
+
+### Upgrading
+
+- **Plugins:** InvenTree and Quick label now come with the image. Old copies in `plugins/` (from earlier installs) are ignored, with a note in the log; you can delete them. Your own plugins in `plugins/` load as before.
+- **Designs** are kept in `designs/` next to `config.yaml`. The example designs are added once; delete the ones you don't want and they stay deleted.
+- The label editor is a prototype for desktop browsers. Printing designs works on the phone like any other label.
+- The `v0.2.1` tag had no release notes; its changes (USB printers in the installer) are listed here.
 
 ## [0.2.0] — 2026-10-18
 
@@ -67,5 +87,7 @@ The first public version: label printing from your phone to a Brother QL printer
 
 See the [roadmap](ROADMAP.md) for what's next.
 
+[Unreleased]: https://github.com/eiaro/tusj/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/eiaro/tusj/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eiaro/tusj/releases/tag/v0.2.0
 [0.1.0-alpha]: https://github.com/eiaro/tusj/releases/tag/v0.1.0-alpha

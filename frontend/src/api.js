@@ -122,3 +122,37 @@ export async function updatePlugin(pluginId, update) {
 export async function checkPlugin(pluginId) {
   return (await post(`/plugins/${pluginId}/check`, {})).json()
 }
+
+// --- Label editor ---
+
+export async function getDesignMeta() {
+  return (await request('/designs/meta')).json()
+}
+
+export async function getDesigns() {
+  return (await request('/designs')).json()
+}
+
+export async function saveDesign(id, design) {
+  return (await send('PUT', `/designs/${id}`, design)).json()
+}
+
+export async function deleteDesign(id) {
+  return (await request(`/designs/${id}`, { method: 'DELETE' })).json()
+}
+
+/** The design drawn by the backend exactly as it will print (as seen, not turned for the printer). */
+export async function designValues(design, values, lang) {
+  const res = await post(withParams('/designs/values', { lang }), { design, values })
+  return res.json()
+}
+
+export async function previewDesign(design, values, lang) {
+  const res = await post(withParams('/designs/preview', { lang, as_designed: true }), { design, values })
+  return res.blob()
+}
+
+export async function searchDesignSource(sourceId, query, lang) {
+  const params = new URLSearchParams({ q: query, lang })
+  return (await request(`/designs/sources/${sourceId}/search?${params}`)).json()
+}

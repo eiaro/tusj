@@ -25,7 +25,7 @@ def test_old_single_printer_config_is_migrated(client, config_file):
     }))
     assert client.get("/printers").json() == [{
         "id": "default", "name": "QL-820NWB", "driver": "brother_ql", "connection": "tcp://192.168.1.50",
-        "model": "QL-820NWB", "media": "62", "media_info": {"tape_mm": 62, "endless": True},
+        "model": "QL-820NWB", "media": "62", "media_info": {"id": "62", "tape_mm": 62, "endless": True},
     }]
     # Reading doesn't rewrite the file; the next save does.
     assert "printer" in _config(config_file)
@@ -44,7 +44,8 @@ def test_options(client):
     assert media["62"] == {"id": "62", "tape_mm": 62, "length_mm": None, "endless": True, "two_color": False,
                            "supported": True}
     assert media["62red"]["two_color"] is True
-    assert media["62x29"]["supported"] is False
+    # Die-cut labels can be chosen: designs from the label editor print on them.
+    assert media["62x29"]["supported"] is True
 
 
 BROTHER = {"name": "Verksted", "driver": "brother_ql", "connection": "tcp://10.0.0.5", "model": "QL-700",
@@ -83,7 +84,7 @@ def test_valid_connections(client, connection):
 def test_file_printer_needs_no_connection_or_model(client):
     r = client.post("/printers", json={**FILE_PRINTER, "connection": "ignored", "model": "ignored"})
     assert r.json() == {"id": "arkiv-png", "name": "Arkiv (PNG)", "driver": "file", "media": "29",
-                        "media_info": {"tape_mm": 29, "endless": True}}
+                        "media_info": {"id": "29", "tape_mm": 29, "endless": True}}
 
 
 # --- CRUD ---

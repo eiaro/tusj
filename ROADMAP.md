@@ -21,51 +21,39 @@ Have an idea or need something here sooner? Open an issue.
 | **Everyday use** | Copies (one job, cut between), "recent prints" with *print again*, printer status in Settings, network search for printers. |
 | **Running it** | Podman/Docker containers with a healthcheck; `config.yaml` kept out of git; backend test suite (pytest). |
 | **Easy install** | One `curl` command installs to `/srv/tusj` from multi-architecture images (amd64/arm64) published by GitHub Actions. |
+| **Raspberry Pi and USB** | Runs on a Pi (ARM64) with a QL-700 over USB, tested on real hardware. `install.sh --usb` finds connected QL printers and maps only those into the container. See [docs/usb-printers.md](docs/usb-printers.md). |
+| **Label editor** | Design labels in the browser: text, QR codes, icons and boxes placed in mm, with a preview drawn by the backend exactly as it prints. Die-cut labels, landscape, text that shrinks to fit, and data from plugins (InvenTree parts, locations, stock items) dragged onto the label. Published designs appear on the start page and can be printed through the API. |
+| **Releases** | Version number in the API and the app, release notes in [CHANGELOG.md](CHANGELOG.md), tags from `v0.1.0-alpha` to `v0.3.0`. |
 
 ---
 
 ## 🔜 Next
 
-### Releases
+### Label editor
 
-- [x] Version number in the API and the app.
-- [x] Release notes: [CHANGELOG.md](CHANGELOG.md).
-- [ ] Tag `v0.1.0-alpha`.
-- [ ] Tag `v0.2.0`.
+The editor is new: it works on a desktop browser, and designs made in it are the easiest way to make your own labels.
 
-### Raspberry Pi and USB printers
+- [ ] Barcodes (Code 128, EAN) and images (logos) as elements.
+- [ ] Editing on a phone or tablet. Printing designs already works there.
+- [ ] Turn the YAML templates (premade food, spice jar) into editor designs, so there is one way to make labels.
+- [ ] API token, so other systems can print designs without opening Tusj to everyone on the network.
 
-Tusj should run on a Raspberry Pi next to a USB printer. The USB driver is written (pyusb and `/dev/usb/lp*`) and `libusb` is in the image, but it hasn't met real hardware yet.
+### USB printers
 
-- [ ] Build and run the images on a Pi (ARM64).
-- [ ] Verify printing over USB. Possible before the Pi too: the QL-820NWB has USB and can be passed into WSL with `usbipd-win`.
 - [ ] Report the printer's real status over USB: *printed*, or the error (empty roll, wrong tape) instead of just *sent*.
-- [ ] Search for USB printers in Settings (`brother_ql discover` via pyusb).
-- [ ] USB in a rootless Podman container. Options, in order of preference:
-  1. Mount `/dev/bus/usb` with a udev rule and group access (`--group-add keep-groups`). Survives unplugging the printer.
-  2. `--device /dev/usb/lp0`. Simple, but fails if the printer isn't connected when the container starts.
-  3. Fallback: run the backend directly on the Pi with systemd and keep the frontend in a container.
-- [ ] Document that *Editor Lite* must be off on QL printers used over USB.
+- [ ] Search for USB printers in Settings, not only in the installer.
 
 ---
 
 ## 🕐 Later
 
-### Die-cut labels and rotation
+### Layout helpers for plugins
 
-Since labels are drawn for the loaded tape, this is mostly work in the layout helpers, not a rewrite.
+The label editor has die-cut labels, landscape and shrink to fit; Python plugins still draw on endless tape.
 
-- [ ] Fixed-height media: draw on a fixed canvas instead of growing with the content.
-- [ ] Shrink to fit: text blocks reduce their font size, then truncate with "…" at the minimum size.
-- [ ] Rotation for landscape die-cut labels (e.g. 29×90).
+- [ ] Die-cut and landscape labels for plugins.
 - [ ] Rotated layout for narrow endless tape (12–18 mm): text along the tape instead of words broken over many lines.
-- [ ] Preview for fixed-height labels.
-
-### More layout helpers for plugins
-
-- [ ] Barcodes (Code 128, EAN) via `python-barcode`.
-- [ ] Images (logos, icons) on labels.
-- [ ] Two-column text blocks.
+- [ ] Barcodes and images in `layout`, shared with the editor.
 
 ### InvenTree
 
@@ -75,7 +63,7 @@ Since labels are drawn for the loaded tape, this is mostly work in the layout he
 
 - [x] CI on every push: backend tests and the frontend build (GitHub Actions, before images are published).
 - [ ] Frontend tests.
-- [ ] Publish a `latest` image tag for stable releases. Today only `main` is published, as `edge`, and `compose.yaml` defaults to `edge`. `v0.2.0` is the first release `latest=auto` would tag (it skips pre-releases such as `v0.1.0-alpha`). Once `v0.2.0` is published, set `flavor: latest=auto` in `.github/workflows/container-images.yml` and make `latest` the default in `compose.yaml` — in that order, or installs pull a tag that doesn't exist yet.
+- [ ] Publish a `latest` image tag for stable releases. Today `compose.yaml` defaults to `edge` (built from `main`). Releases from `v0.3.0` publish `latest` too; once that image is out, make `latest` the default in `compose.yaml` and the installer.
 
 ---
 
@@ -87,6 +75,7 @@ Not decided — say so if you'd use one of these.
 - **Print from inside InvenTree**: an InvenTree plugin that sends jobs to Tusj, as an alternative to searching in Tusj.
 - **Install plugins from the app** (upload or git URL) instead of copying them into `plugins/`.
 - **Keep "recent prints" across restarts.**
+- **A4 reports** on an ordinary office printer over IPP/AirPrint, e.g. a parts list or a sheet of labels.
 - **Black/red printing** on two-colour tape (DK-22251), e.g. allergens in red.
 
 ---
@@ -100,7 +89,8 @@ Not decided — say so if you'd use one of these.
 | InvenTree | Tusj fetches from InvenTree (search in Tusj → print). An InvenTree-side plugin is not ruled out (see *Ideas*). |
 | Default printer | Per plugin, for the whole installation, not per phone. |
 | Login | None for now: Tusj runs on a home network, and everyone there may change the settings. |
-| Running on a Pi | Containers preferred; the backend may run directly on the Pi if USB in a container proves impractical. |
+| Running on a Pi | In containers, with only the detected USB printers mapped in. |
+| Own labels | Designed in the label editor and stored as JSON in `designs/`; Python plugins are for labels that need code, and can provide data to designs. |
 
 ## Known limitations
 

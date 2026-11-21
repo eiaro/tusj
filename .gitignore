@@ -4,3 +4,8 @@ __pycache__/
 prints/
 config.yaml
 compose.usb.yaml
+
+# Your own plugins and label editor designs (bundled ones live in backend/)
+/plugins/*
+!/plugins/README.md
+/designs/

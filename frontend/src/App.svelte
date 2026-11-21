@@ -4,6 +4,7 @@
   import Field from './Field.svelte'
   import LabelPreview from './LabelPreview.svelte'
   import Settings from './Settings.svelte'
+  import Editor from './Editor.svelte'
 
   let labelTypes = $state(null)
   let printers = $state([])
@@ -14,6 +15,7 @@
   let loadError = $state(null)
   let selectedId = $state(null)
   let showSettings = $state(false)
+  let showEditor = $state(false)
   let values = $state({})
 
   let previewUrl = $state('')
@@ -28,6 +30,8 @@
   const printer = $derived(printers.find((p) => p.id === printerId))
 
   function fits(req, media) {
+    // Designs from the label editor are made for one exact label size.
+    if (req.id) return media.id === req.id
     return media.tape_mm >= req.min_width_mm && (media.endless ? req.endless : req.die_cut)
   }
 
@@ -68,10 +72,11 @@
   }
 
   function back() {
-    // Plugins may have been enabled, disabled or reconfigured.
-    if (showSettings) load()
+    // Plugins may have been enabled, disabled or reconfigured, or designs published.
+    if (showSettings || showEditor) load()
     selectedId = null
     showSettings = false
+    showEditor = false
     toast = null
   }
 
@@ -120,15 +125,20 @@
 </script>
 
 <header>
-  {#if labelType || showSettings}
+  {#if labelType || showSettings || showEditor}
     <button class="back" onclick={back} aria-label={t('common.back')}>‹</button>
-    <h1>{showSettings ? t('common.settings') : pick(labelType.name)}</h1>
+    <h1>{showSettings ? t('common.settings') : showEditor ? t('editor.title') : pick(labelType.name)}</h1>
   {:else}
     <h1>Tusj</h1>
+    <button class="settings editor-open" onclick={() => (showEditor = true)} aria-label={t('editor.title')}
+            title={t('editor.title')}>✎</button>
     <button class="settings" onclick={() => (showSettings = true)} aria-label={t('common.settings')}>⚙</button>
   {/if}
 </header>
 
+{#if showEditor}
+  <Editor />
+{:else}
 <main>
   {#if showSettings}
     <Settings />
@@ -199,3 +209,4 @@
     </form>
   {/if}
 </main>
+{/if}

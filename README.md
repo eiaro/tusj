@@ -12,8 +12,9 @@ Print labels for freezer bags, leftovers, spice jars and parts bins from your ph
 ## What it does
 
 - **Made for the phone.** Pick what you're labelling, fill in a few fields, see the label at real size, print.
-- **Kitchen labels out of the box.** Premade food with made/expiry dates and the 14 allergens, spice jars with a decorative frame — or add your own as a YAML file.
-- **Plugins for everything else.** Python plugins can fetch data and draw any label. Included: **InvenTree** part and location labels with a QR code the InvenTree app can scan, and a **quick label** with free text and a QR code.
+- **Kitchen labels out of the box.** Premade food with made/expiry dates and the 14 allergens, spice jars with a decorative frame.
+- **Design your own in the browser.** A label editor on the computer: drag text, QR codes, icons and lines onto the label, see exactly what will print, publish — and it shows up on the phone like any other label.
+- **Data from anywhere.** Plugins look up the data a label needs. Included: **InvenTree** parts, locations and stock items (with a QR code the InvenTree app can scan), and a **quick label** with free text and a QR code.
 - **Any QL printer, any tape.** Network, USB or Linux device; 12–102 mm endless tape. Several printers, a default per plugin, copies, and a "print again" list.
 - **English and Norwegian**, and easy to translate. Labels print in the language you use.
 - **Self-hosted.** Two small containers on a Raspberry Pi or any Linux box on your home network.
@@ -49,7 +50,7 @@ The installer downloads the source, then puts the application, `compose.yaml` an
 
 **Starting after a reboot.** With rootless Podman, the installer enables lingering for your user and `podman-restart.service`, so Tusj comes back after a reboot or power cut. If it isn't allowed to enable lingering, it prints the one command to run (`sudo loginctl enable-linger <user>`). With Docker, the Docker service must be enabled at boot.
 
-**Updating.** Run the same command again. `config.yaml` and files you added to `templates/` or `plugins/` are kept. If you changed a file that ships with Tusj, it is replaced by the new version and your copy is kept next to it as `<file>.local-<date>` — give your own label types new file names to avoid that.
+**Updating.** Run the same command again. `config.yaml`, your designs from the label editor and files you added to `templates/` or `plugins/` are kept. If you changed a file that ships with Tusj, it is replaced by the new version and your copy is kept next to it as `<file>.local-<date>` — give your own label types new file names to avoid that.
 
 To choose Docker explicitly, pass `--docker` to the script:
 
@@ -58,6 +59,8 @@ curl -fsSL https://raw.githubusercontent.com/eiaro/tusj/main/scripts/raspberry-p
 ```
 
 **USB printers.** Connect and switch on the printer, then add `--usb` (`… | bash -s -- --usb`, or `./scripts/raspberry-pi/install.sh --usb` from a checkout). The installer lists the Brother QL printers it finds, maps only those into the backend container, and tells you about any step that needs `sudo`. Then add the printer in Tusj with `usb://0x04f9:0x2042` (the ID it printed). Run it again with `--usb` after connecting another printer. Details, permissions, reboot behaviour and troubleshooting: [docs/usb-printers.md](docs/usb-printers.md).
+
+**Hardware.** I run Tusj on a Raspberry Pi mounted under a Brother QL-700. The base I designed for that (magnetic mount, cable management) is [for sale on Cults3D](https://cults3d.com/en/3d-model/tool/brother-ql-700-raspberry-pi-base-magnetic-mount-cable-management). It's not needed to use Tusj.
 
 GitHub Actions runs the backend tests and the frontend build first, then builds `linux/amd64` and `linux/arm64` images for pull requests and publishes them to GHCR on pushes to `main` (tagged `edge`) and version tags (`v*`). The first time the packages are published, make `tusj-backend` and `tusj-frontend` public in their GitHub package settings if the Pi should pull images without registry credentials.
 
@@ -88,8 +91,24 @@ Labels are drawn for the tape that is loaded, from 12 mm up to 102 mm — here t
 
 ### Your own labels
 
+**The label editor** is the easiest way: open **✎** at the top of the app on a computer.
+
+<p align="center">
+  <img src="docs/images/editor.png" alt="The label editor: an InvenTree part label with a QR code, name, IPN and description on the canvas, the Data panel on the left listing part variables with sample values, and label settings on the right" width="760">
+</p>
+
+- **Place things in mm** on a label of a fixed size — text, QR codes, icons ([Material Design Icons](https://pictogrammers.com/library/mdi/) or emoji), boxes and lines. Drag to move, handles to resize, with snapping, undo and keyboard shortcuts.
+- **What you see is what prints:** the label on the screen is drawn by the backend with the same code that prints it.
+- **Data:** add fields that are filled in when printing (text, dates with presets, choices, allergens), and pick a data source such as an InvenTree part. Drag a field or a variable onto the label from the **Data** panel; search for a real part to see the label with real data.
+- **Endless or die-cut labels**, across or along the tape, text per language.
+- **Publish**, and the label appears on the start page. Designs are saved as JSON in `designs/`.
+
+A published design is also a label type in the API, so other systems can print it and Tusj looks up the data: `POST http://<host>:8000/print/designs.<design>` with `{"part": 12}` prints part 12 from InvenTree on your design.
+
+For labels the editor can't draw:
+
 - **A YAML file** in `templates/` is enough for simple labels — see `templates/premade_food.yaml`.
-- **A Python plugin** in `plugins/<name>/plugin.py` can fetch data from anywhere and draw anything, with search-as-you-type fields, settings (including secrets) and its own translations. See **[docs/plugins.md](docs/plugins.md)**; `plugins/quick_label` is a small example and `plugins/inventree` a complete one.
+- **A Python plugin** in `plugins/<name>/plugin.py` can fetch data from anywhere and draw anything, with search-as-you-type fields, settings (including secrets) and its own translations. See **[docs/plugins.md](docs/plugins.md)**; the bundled `backend/bundled_plugins/quick_label` is a small example and `backend/bundled_plugins/inventree` a complete one.
 
 Plugins are switched on and off, and configured, under **Settings → Plugins**.
 
@@ -113,7 +132,7 @@ Everything lives in `config.yaml` and most of it is edited from the app. It is n
 | App | `http://<host>:8080` |
 | API | `http://<host>:8000` — interactive docs at `/docs` |
 | Health | `GET /health`, used by the container healthcheck |
-| Mounted into the backend | `config.yaml`, `templates/`, `plugins/`, `prints/` |
+| Mounted into the backend | `config.yaml`, `templates/`, `plugins/` (your own), `designs/`, `prints/` |
 
 ## Translations
 
@@ -154,9 +173,11 @@ The tests never touch your `config.yaml` or a real printer.
 **Alpha** — it works, but expect rough edges. Known gaps:
 
 - USB printing is written but not yet tested on real hardware.
-- Die-cut labels aren't supported yet, and narrow tape (12 mm) would look better with rotated text.
+- The label editor is new and made for a computer, not the phone. Barcodes and images aren't in it yet.
+- Die-cut labels only work with designs from the label editor, and narrow tape (12 mm) would look better with rotated text.
 - No login: anyone on your network can change the settings.
 - The "recent prints" list is cleared when the backend restarts.
 
 What's new is in the **[changelog](CHANGELOG.md)**, what's next in the **[roadmap](ROADMAP.md)**.
 
+If Tusj is useful to you, you can [buy me a coffee on Ko-fi](https://ko-fi.com/eiaro).

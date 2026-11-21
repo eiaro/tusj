@@ -137,3 +137,14 @@ def fake_printer():
 @pytest.fixture(autouse=True)
 def empty_job_log():
     main.jobs.clear()
+
+
+@pytest.fixture(autouse=True)
+def designs_dir(tmp_path, monkeypatch):
+    """Designs from the label editor are saved here instead of the repo's designs/."""
+    import design
+
+    path = tmp_path / "designs"
+    monkeypatch.setattr(design, "DESIGNS_DIR", path)
+    monkeypatch.setattr(design, "EXAMPLES_DIR", tmp_path / "no-examples")  # tests start empty
+    return path

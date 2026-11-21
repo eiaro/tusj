@@ -1,0 +1,18 @@
+{
+  "name": {"en": "Part (designed)", "nb": "Del (designet)"},
+  "icon": "🔩",
+  "media": "62",
+  "length_mm": 29,
+  "orientation": "portrait",
+  "source": "inventree.part",
+  "fields": [],
+  "elements": [
+    {"id": "qr", "type": "qr", "x": 1.5, "y": 2, "w": 25, "h": 25, "data": "{part.barcode}"},
+    {"id": "name", "type": "text", "x": 28.5, "y": 2, "w": 29, "h": 12, "text": "{part.name}", "size": 16, "bold": true,
+     "align": "left", "valign": "top", "fit": "shrink"},
+    {"id": "ipn", "type": "text", "x": 28.5, "y": 14.5, "w": 29, "h": 5, "text": "{part.ipn}", "size": 10, "bold": false,
+     "align": "left", "valign": "top", "fit": "shrink"},
+    {"id": "description", "type": "text", "x": 28.5, "y": 19.5, "w": 29, "h": 7.5, "text": "{part.description}", "size": 8,
+     "bold": false, "align": "left", "valign": "top", "fit": "shrink"}
+  ]
+}

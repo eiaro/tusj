@@ -4,7 +4,8 @@
   import { searchLookup } from './api.js'
   import { errorText, i18n, pick, t } from './i18n.svelte.js'
 
-  let { id, spec, labelTypeId, value = $bindable() } = $props()
+  // `searchFn(query, lang)` replaces the label type's search (the editor searches a data source).
+  let { id, spec, labelTypeId, value = $bindable(), searchFn = null } = $props()
 
   let query = $state('')
   let chosen = $state(null)
@@ -40,7 +41,7 @@
     loading = true
     error = null
     try {
-      const found = await searchLookup(labelTypeId, spec.id, q, i18n.locale)
+      const found = searchFn ? await searchFn(q, i18n.locale) : await searchLookup(labelTypeId, spec.id, q, i18n.locale)
       if (mine === seq) results = found
     } catch (e) {
       if (mine === seq) error = e

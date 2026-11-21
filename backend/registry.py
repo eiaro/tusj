@@ -7,12 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from i18n import AppError
-from plugin_api import LabelType, Plugin
+from plugin_api import DataSource, LabelType, Plugin
 
 logger = logging.getLogger(__name__)
 
-PLUGINS_DIR = Path(__file__).resolve().parent.parent / "plugins"
-BUILTIN_MODULES = ["builtin_plugins.templates"]
+PLUGINS_DIR = Path(__file__).resolve().parent.parent / "plugins"   # your own plugins (mounted)
+BUNDLED_DIR = Path(__file__).resolve().parent / "bundled_plugins"   # shipped in the image
+BUILTIN_MODULES = ["builtin_plugins.templates", "builtin_plugins.designs"]
 
 
 @dataclass
@@ -34,8 +35,10 @@ def _describe(exc: Exception) -> str:
 
 
 class Registry:
-    def __init__(self, plugins_dir: Path = PLUGINS_DIR, builtin_modules: list[str] = BUILTIN_MODULES):
+    def __init__(self, plugins_dir: Path = PLUGINS_DIR, builtin_modules: list[str] = BUILTIN_MODULES,
+                 bundled_dir: Path = BUNDLED_DIR):
         self.plugins_dir = plugins_dir
+        self.bundled_dir = bundled_dir
         self.builtin_modules = builtin_modules
         self.entries: dict[str, PluginEntry] = {}
 
@@ -45,10 +48,26 @@ class Registry:
         self.entries = {}
         for name in self.builtin_modules:
             self._add(name.rsplit(".", 1)[-1], "builtin", lambda name=name: importlib.import_module(name))
-        if self.plugins_dir.is_dir():
-            for path in sorted(self.plugins_dir.iterdir()):
-                if (path / "plugin.py").is_file():
-                    self._add(path.name, str(path), lambda path=path: self._import_file(path))
+        bundled = self._plugin_dirs(self.bundled_dir)
+        for path in bundled:
+            self._add(path.name, str(path), lambda path=path: self._import_file(path))
+        for path in self._plugin_dirs(self.plugins_dir):
+            if path.name in {b.name for b in bundled}:
+                # Older installs copied the bundled plugins into plugins/; the image's copy is
+                # the one that matches this version of Tusj.
+                logger.info("Ignoring %s: %s ships with Tusj", path, path.name)
+                continue
+            self._add(path.name, str(path), lambda path=path: self._import_file(path))
+        # Plugins that build on other plugins (the label editor's designs use their data sources).
+        for entry in self.entries.values():
+            if entry.plugin is not None and hasattr(entry.plugin, "use_registry"):
+                entry.plugin.use_registry(self)
+
+    @staticmethod
+    def _plugin_dirs(root: Path) -> list[Path]:
+        if not root.is_dir():
+            return []
+        return [p for p in sorted(root.iterdir()) if (p / "plugin.py").is_file()]
 
     def _import_file(self, path: Path):
         spec = importlib.util.spec_from_file_location(f"tusj_plugins.{path.name}", path / "plugin.py")
@@ -119,3 +138,23 @@ class Registry:
             if lt_id == full_id:
                 return entry, lt
         raise AppError(404, "label_type_not_found", f"Label type '{full_id}' not found", label_type=full_id)
+
+    def data_sources(self) -> list[tuple[str, PluginEntry, DataSource]]:
+        """(full id, plugin entry, data source) for every active plugin, ids '<plugin>.<source>'."""
+        out = []
+        for entry in self.entries.values():
+            if not entry.active:
+                continue
+            try:
+                for ds in entry.plugin.data_sources():
+                    out.append((f"{entry.id}.{ds.id}", entry, ds))
+            except Exception as e:
+                logger.exception("Plugin %s failed to list data sources", entry.id)
+                entry.error = _describe(e)
+        return out
+
+    def data_source(self, full_id: str) -> tuple[PluginEntry, DataSource]:
+        for ds_id, entry, ds in self.data_sources():
+            if ds_id == full_id:
+                return entry, ds
+        raise AppError(404, "data_source_not_found", f"Data source '{full_id}' is not available", source=full_id)

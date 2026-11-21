@@ -3,7 +3,7 @@
     from plugin_api import Plugin, LabelType, RenderContext, field, layout
 
 A plugin is a directory `plugins/<id>/` containing `plugin.py`, which defines a module-level
-`plugin` object (an instance of a Plugin subclass). See plugins/quick_label for an example.
+`plugin` object (an instance of a Plugin subclass). See bundled_plugins/quick_label for an example.
 
 Text shown to users (names, field labels, option labels) is either a plain string or a
 {language: text} map, e.g. {"en": "Title", "nb": "Tittel"}.
@@ -21,8 +21,8 @@ from layout import FONT_BOLD, FONT_REGULAR, Scale, TextFlow
 from media import Media
 
 __all__ = [
-    "Plugin", "LabelType", "RenderContext", "MediaRequirements", "PluginError",
-    "field", "option", "setting", "resolve_values", "layout", "symbols", "Media", "Scale", "TextFlow", "FONT_BOLD",
+    "Plugin", "LabelType", "DataSource", "RenderContext", "MediaRequirements", "PluginError",
+    "field", "option", "setting", "variable", "resolve_values", "layout", "symbols", "Media", "Scale", "TextFlow", "FONT_BOLD",
     "FONT_REGULAR",
 ]
 
@@ -72,6 +72,12 @@ def setting(id: str, type: str, label: Text, *, required: bool = False, default:
     if help:
         spec["help"] = help
     return spec
+
+
+def variable(id: str, label: Text, *, sample: str = "") -> dict:
+    """A value a DataSource provides to designs, used there as {<source id>.<id>}. `sample` is
+    shown in the design editor before a real record is picked."""
+    return {"id": id, "label": label, "sample": sample}
 
 
 def _empty(value) -> bool:
@@ -178,6 +184,33 @@ class LabelType:
         raise NotImplementedError
 
 
+class DataSource:
+    """Records a design made in the label editor can show, e.g. InvenTree parts.
+
+    The design gets a lookup field with the source's id (pick a part) and can place the
+    source's variables anywhere on the label as {part.name}, {part.barcode}, ...
+    Printing a design that uses this source works like any label type:
+    POST /print/designs.<design id> with {"<source id>": "<record id>"}.
+    """
+
+    id: str = ""                    # unique within the plugin; also the lookup field id
+    name: Text = ""
+    icon: str = "🔗"
+    placeholder: Text = ""          # placeholder of the lookup field
+
+    def variables(self) -> list[dict]:
+        """[variable(...), ...] this source fills in."""
+        return []
+
+    def search(self, query: str, lang: str) -> list[dict]:
+        """Options (option(...)) for the lookup field matching `query`."""
+        return []
+
+    def fetch(self, value: str, lang: str) -> dict:
+        """{variable id: value} for the record picked in the lookup field."""
+        raise NotImplementedError
+
+
 class Plugin:
     """Base class for plugins. Subclass, set the attributes, override what you need."""
 
@@ -198,6 +231,10 @@ class Plugin:
         """Optional 'Test' button under Settings: raise PluginError if something is wrong."""
 
     def label_types(self) -> list[LabelType]:
+        return []
+
+    def data_sources(self) -> list[DataSource]:
+        """Data for designs made in the label editor (see DataSource)."""
         return []
 
     def error(self, code: str, message: str, status: int = 400, **params) -> PluginError:

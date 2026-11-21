@@ -187,11 +187,12 @@ if ! mkdir -p "$install_dir"; then
 fi
 install_dir="$(cd -- "$install_dir" && pwd)"
 
-# templates/ and plugins/ are meant to be edited. When updating, keep a copy of any
-# shipped file that was changed locally before replacing it; files you added are left alone.
+# templates/ is meant to be edited. When updating, keep a copy of any shipped file that was
+# changed locally before replacing it; files you added are left alone. plugins/ is only for your
+# own plugins: the bundled ones (InvenTree, Quick label) ship in the backend image.
 stamp="$(date +%Y%m%d-%H%M%S)"
 backups=()
-for user_dir in plugins templates; do
+for user_dir in templates; do
   while IFS= read -r -d '' new_file; do
     rel="${new_file#"$repo_root/"}"
     old_file="$install_dir/$rel"
@@ -202,7 +203,7 @@ for user_dir in plugins templates; do
   done < <(find "$repo_root/$user_dir" -type f -not -path '*/__pycache__/*' -print0)
 done
 
-for app_dir in backend frontend plugins templates; do
+for app_dir in backend frontend templates; do
   cp -a "$repo_root/$app_dir" "$install_dir/"
 done
 
@@ -220,6 +221,9 @@ elif [[ ! -f "$install_dir/config.yaml" ]]; then
   exit 1
 fi
 mkdir -p "$install_dir/prints"
+# plugins/ holds your own plugins; designs/ holds labels made in the label editor (the app adds
+# its example designs there itself, once each, so updating never touches your designs).
+mkdir -p "$install_dir/plugins" "$install_dir/designs"
 
 printf 'Installed Tusj files in %s using %s.\n' "$install_dir" "$selected_runtime"
 
